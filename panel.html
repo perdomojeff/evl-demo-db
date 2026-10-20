@@ -1,0 +1,122 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="robots" content="noindex,nofollow">
+<title>Panel EVL · base de datos</title>
+<style>
+:root{--bg:#fbf8ff;--bg2:#f3ebf8;--fg:#1c0f31;--mute:#5d4f78;--line:#dccff0;--card:#fff;--acc:#373299;--btn:#ba1885;--btn-h:#8f1068;--ok:#0f7a5c;--warn:#a05a00;--bad:#b3261e;--body:'Segoe UI',system-ui,-apple-system,sans-serif}
+@media (prefers-color-scheme:dark){:root{--bg:#140c24;--bg2:#1e1434;--fg:#f4ecff;--mute:#b9a9d6;--line:#3a2b5c;--card:#21163a;--acc:#9a95ff;--btn:#d63aa3;--btn-h:#ef5cbc;--ok:#3fd1a1;--warn:#ffb23f;--bad:#ff8a80}}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--fg);font:15px/1.5 var(--body)}
+header{background:linear-gradient(120deg,#1d1a5a,#373299 60%,#ba1885);color:#fff;padding:16px 20px;display:flex;gap:14px;align-items:center;flex-wrap:wrap}
+header h1{font-size:18px;margin:0;flex:1}
+header a,header button{color:#fff;font:600 13px var(--body);background:rgba(255,255,255,.16);border:0;border-radius:999px;padding:8px 14px;text-decoration:none;cursor:pointer}
+main{max-width:1180px;margin:0 auto;padding:18px 16px 60px}
+.card{background:var(--card);border:1px solid var(--line);border-radius:16px;padding:18px;margin:14px 0}
+.login{max-width:420px;margin:48px auto}
+label{display:block;font-weight:600;font-size:13px;margin:12px 0 4px}
+input{width:100%;font:16px var(--body);padding:11px 12px;border:1.5px solid var(--line);border-radius:10px;background:var(--bg);color:var(--fg)}
+.btn{font:700 14px var(--body);background:var(--btn);color:#fff;border:0;border-radius:10px;padding:10px 16px;cursor:pointer}
+.btn:hover{background:var(--btn-h)}.btn.sm{padding:6px 11px;font-size:12.5px}.btn.alt{background:var(--acc)}.btn:disabled{opacity:.5;cursor:default}
+.tabs{display:flex;gap:6px;flex-wrap:wrap;margin:6px 0 0}
+.tabs button{font:600 13.5px var(--body);background:var(--bg2);color:var(--fg);border:1.5px solid var(--line);border-radius:999px;padding:8px 14px;cursor:pointer}
+.tabs button.on{background:var(--acc);color:#fff;border-color:var(--acc)}
+.kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px}
+.kpi{background:var(--bg2);border-radius:14px;padding:14px}.kpi b{display:block;font-size:26px}.kpi span{color:var(--mute);font-size:13px}
+.tw{overflow-x:auto}table{width:100%;border-collapse:collapse;font-size:13.5px}
+th,td{text-align:left;padding:9px 10px;border-bottom:1px solid var(--line);vertical-align:top}th{color:var(--mute);font-size:12px;text-transform:uppercase;letter-spacing:.04em}
+small{display:block;color:var(--mute)}
+.pill{display:inline-block;border-radius:999px;padding:2px 10px;font-size:12px;font-weight:700;background:var(--bg2)}
+.pill.ok{color:var(--ok)}.pill.warn{color:var(--warn)}.pill.bad{color:var(--bad)}
+.msg{padding:10px 14px;border-radius:12px;margin:10px 0;background:var(--bg2)}.msg.err{color:var(--bad)}
+.empty{color:var(--mute)}
+h2{margin:0 0 6px;font-size:18px}
+</style>
+</head>
+<body>
+<header>
+  <h1>Panel de EVL · base de datos (versión de pruebas)</h1>
+  <a href="index.html">← Sitio</a>
+  <button id="out" hidden>Cerrar sesión</button>
+</header>
+<main id="app"></main>
+<script>
+(function(){
+var SB='https://yyezqfphedaqaqffhmfe.supabase.co',KEY='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inl5ZXpxZnBoZWRhcWFxZmZobWZlIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTI1MjAzNzIsImV4cCI6MjEwODA5NjM3Mn0.24hnLtCSx9Uc9erDW03yAZjS41UcY_cN3n-IaKqV8_0';
+var TOKEN=null,UID=null,TAB='res',MSG=null,CACHE={};
+var app=document.getElementById('app');
+function esc(s){return String(s==null?'':s).replace(/[&<>"]/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]})}
+function hdr(extra){var h={apikey:KEY,Authorization:'Bearer '+(TOKEN||KEY),'Content-Type':'application/json'};for(var k in extra||{})h[k]=extra[k];return h}
+function get(path,extra){return fetch(SB+'/rest/v1/'+path,{headers:hdr(extra)}).then(function(r){return r.json().catch(function(){return null}).then(function(j){if(!r.ok)throw new Error((j&&(j.message||j.hint))||('HTTP '+r.status));return {j:j,r:r}})})}
+function post(path,body){return fetch(SB+'/rest/v1/'+path,{method:'POST',headers:hdr({Prefer:'return=representation'}),body:JSON.stringify(body)}).then(function(r){return r.json().catch(function(){return null}).then(function(j){if(!r.ok)throw new Error((j&&(j.message||j.hint))||('HTTP '+r.status));return j})})}
+function count(t,q){return get(t+'?select=id&limit=1'+(q||''),{Prefer:'count=exact'}).then(function(x){var c=x.r.headers.get('content-range')||'';return +(c.split('/')[1]||0)})}
+function money(c){return '$'+((c||0)/100).toFixed(2)}
+function dt(s){return s?new Date(s).toLocaleString('es-US',{dateStyle:'medium',timeStyle:'short'}):''}
+function d0(s){return s?new Date(s+'T12:00:00').toLocaleDateString('es-US',{dateStyle:'medium'}):''}
+function stp(s){var m={paid:['ok','Pagado'],reserved:['warn','Reservado'],completed:['ok','Completado'],expired:['bad','Vencido'],cancelled:['bad','Cancelado'],pending:['warn','Pendiente'],queued:['warn','En cola'],sent:['ok','Enviado'],skipped:['bad','Omitido'],failed:['bad','Fallido'],new:['warn','Nuevo'],lead:['','Prospecto'],active:['ok','Activo']};var x=m[s]||['',s];return '<span class="pill '+x[0]+'">'+esc(x[1])+'</span>'}
+function saveSess(){try{sessionStorage.setItem('evl_tok',TOKEN||'');sessionStorage.setItem('evl_uid',UID||'')}catch(e){}}
+function loadSess(){try{TOKEN=sessionStorage.getItem('evl_tok')||null;UID=sessionStorage.getItem('evl_uid')||null}catch(e){}}
+
+function loginView(err){
+ document.getElementById('out').hidden=true;
+ app.innerHTML='<div class="card login"><h2>Ingresar</h2><p class="empty">Acceso para administradores. Use el usuario que se creó en Supabase Authentication.</p>'+(err?'<div class="msg err">'+esc(err)+'</div>':'')+'<form id="lf"><label for="em">Correo</label><input id="em" type="email" autocomplete="username" required><label for="pw">Contraseña</label><input id="pw" type="password" autocomplete="current-password" required><p><button class="btn" type="submit">Ingresar</button></p></form></div>';
+ document.getElementById('lf').onsubmit=function(ev){ev.preventDefault();
+  fetch(SB+'/auth/v1/token?grant_type=password',{method:'POST',headers:{apikey:KEY,'Content-Type':'application/json'},body:JSON.stringify({email:document.getElementById('em').value.trim(),password:document.getElementById('pw').value})})
+  .then(function(r){return r.json().then(function(j){if(!r.ok)throw new Error(j.error_description||j.msg||'No se pudo ingresar');TOKEN=j.access_token;UID=j.user&&j.user.id;saveSess();start()})})
+  .catch(function(e){loginView(e.message==='Invalid login credentials'?'Correo o contraseña incorrectos.':e.message)})};
+}
+function logout(){TOKEN=null;UID=null;saveSess();CACHE={};loginView()}
+document.getElementById('out').onclick=logout;
+
+function start(){
+ get('user_roles?select=role&user_id=eq.'+UID).then(function(x){
+  var roles=x.j.map(function(r){return r.role});
+  if(roles.indexOf('admin')<0&&roles.indexOf('staff')<0){app.innerHTML='<div class="card login"><h2>Sin permiso</h2><p>Este usuario no tiene rol de administrador, por lo que la base de datos no le entrega información. Pida que le asignen el rol.</p><p><button class="btn" id="lo">Cerrar sesión</button></p></div>';document.getElementById('lo').onclick=logout;document.getElementById('out').hidden=false;return}
+  document.getElementById('out').hidden=false;shell();show()
+ }).catch(function(){loginView('La sesión venció. Ingrese de nuevo.')});
+}
+var TABS=[['res','Resumen'],['enr','Inscripciones'],['pay','Pagos'],['con','Contactos'],['req','Solicitudes de servicio'],['msg','Mensajes en cola'],['lat','Preguntas sin respuesta (Latina)'],['cer','Certificados']];
+function shell(){app.innerHTML='<div class="tabs" id="tabs">'+TABS.map(function(t){return '<button data-t="'+t[0]+'">'+t[1]+'</button>'}).join('')+'</div><div id="msgbox"></div><div id="view"></div>';
+ document.getElementById('tabs').onclick=function(e){var b=e.target.closest('button');if(b){TAB=b.getAttribute('data-t');show()}}}
+function flash(t,err){MSG={t:t,e:err};var b=document.getElementById('msgbox');if(b)b.innerHTML='<div class="msg'+(err?' err':'')+'">'+esc(t)+'</div>'}
+function show(){
+ Array.prototype.forEach.call(document.querySelectorAll('#tabs button'),function(b){b.classList.toggle('on',b.getAttribute('data-t')===TAB)});
+ var v=document.getElementById('view');v.onclick=null;v.innerHTML='<p class="empty">Cargando…</p>';
+ (VIEWS[TAB]||VIEWS.res)(v).catch(function(e){v.innerHTML='<div class="msg err">'+esc(e.message)+'</div>'})}
+function tbl(head,rows){return '<div class="card tw"><table><thead><tr>'+head.map(function(h){return '<th>'+h+'</th>'}).join('')+'</tr></thead><tbody>'+(rows.length?rows.join(''):'<tr><td colspan="'+head.length+'" class="empty">Sin registros.</td></tr>')+'</tbody></table></div>'}
+var VIEWS={
+ res:function(v){return Promise.all([count('contacts'),count('enrollments'),count('enrollments','&status=eq.paid'),count('payments'),count('certificates'),count('service_requests'),count('outbound_messages','&status=eq.queued'),count('chatbot_unanswered','&handled_at=is.null'),get('v_cohort_overview?select=*&order=start_date')]).then(function(a){
+  var k=[['Contactos',a[0]],['Inscripciones',a[1]],['Pagadas',a[2]],['Pagos registrados',a[3]],['Certificados',a[4]],['Solicitudes de servicio',a[5]],['Mensajes en cola',a[6]],['Preguntas sin respuesta',a[7]]];
+  v.innerHTML='<div class="card"><h2>Resumen en vivo</h2><div class="kpis">'+k.map(function(x){return '<div class="kpi"><b>'+x[1]+'</b><span>'+x[0]+'</span></div>'}).join('')+'</div></div>'+
+  tbl(['Cohort','Curso','Inicio','Estado','Cupos','Pagados','Reservados'],a[8].j.map(function(c){return '<tr><td><b>'+esc(c.code)+'</b></td><td>'+esc(c.course_name_es)+'</td><td>'+d0(c.start_date)+'</td><td>'+esc(c.status)+'</td><td>'+c.seats_taken+' / '+c.capacity+'</td><td>'+c.paid_count+'</td><td>'+c.reserved_count+'</td></tr>'}))})},
+ enr:function(v){return get('enrollments?select=id,status,amount_cents,payment_due_at,created_at,contacts(full_name,email),cohorts(code,courses(name_es))&order=created_at.desc&limit=200').then(function(x){
+  v.innerHTML='<div class="card"><h2>Inscripciones</h2><p class="empty">“Registrar pago” simula el pago que en la versión final llegaría desde QuickBooks: crea el pago, marca la factura como pagada, confirma el cupo y deja en cola el mensaje con el enlace de Zoom.</p></div>'+
+  tbl(['Alumno','Cohort','Monto','Estado','Vence','Acciones'],x.j.map(function(e){var act='';
+   if(e.status==='reserved')act='<button class="btn sm" data-pay="'+e.id+'">Registrar pago</button>';
+   if(e.status==='paid')act='<button class="btn sm alt" data-cert="'+e.id+'">Emitir certificado</button>';
+   return '<tr><td><b>'+esc(e.contacts&&e.contacts.full_name)+'</b><small>'+esc(e.contacts&&e.contacts.email)+'</small></td><td>'+esc(e.cohorts&&e.cohorts.code)+'<small>'+esc(e.cohorts&&e.cohorts.courses&&e.cohorts.courses.name_es)+'</small></td><td>'+money(e.amount_cents)+'</td><td>'+stp(e.status)+'</td><td>'+dt(e.payment_due_at)+'</td><td>'+act+'</td></tr>'}));
+  v.onclick=function(ev){var b=ev.target.closest('button');if(!b)return;
+   if(b.getAttribute('data-pay')){var id=b.getAttribute('data-pay');b.disabled=true;
+    get('invoices?select=id,amount_cents&enrollment_id=eq.'+id+'&status=in.(pending,overdue)&limit=1').then(function(r){var inv=r.j[0];if(!inv)throw new Error('No hay factura pendiente.');return post('payments',{invoice_id:inv.id,amount_cents:inv.amount_cents,method:'card',reference:'Panel de pruebas',paid_at:new Date().toISOString()})}).then(function(){flash('Pago registrado: cupo confirmado y mensaje en cola.');show()}).catch(function(e){flash(e.message,1);b.disabled=false})}
+   if(b.getAttribute('data-cert')){var id2=b.getAttribute('data-cert');b.disabled=true;
+    fetch(SB+'/rest/v1/rpc/issue_certificate',{method:'POST',headers:hdr(),body:JSON.stringify({p_enrollment:id2})}).then(function(r){return r.json().then(function(j){if(!r.ok)throw new Error(({pending_recovery:'Tiene una clase por recuperar.',evaluation_not_passed:'Falta la evaluación aprobada.',course_has_no_certificate:'El curso no emite certificado.'})[j.message]||j.message);flash('Certificado emitido: '+j);show()})}).catch(function(e){flash(e.message,1);b.disabled=false})}}})},
+ pay:function(v){return get('payments?select=amount_cents,method,paid_at,reference,qbo_payment_id,invoices(enrollments(contacts(full_name)))&order=paid_at.desc&limit=200').then(function(x){
+  v.innerHTML='<div class="card"><h2>Pagos</h2></div>'+tbl(['Fecha','Alumno','Monto','Método','Referencia'],x.j.map(function(p){var n=p.invoices&&p.invoices.enrollments&&p.invoices.enrollments.contacts&&p.invoices.enrollments.contacts.full_name;return '<tr><td>'+dt(p.paid_at)+'</td><td>'+esc(n)+'</td><td>'+money(p.amount_cents)+'</td><td>'+esc(p.method)+'</td><td>'+esc(p.reference||p.qbo_payment_id)+'</td></tr>'}))})},
+ con:function(v){return get('contacts?select=full_name,email,phone,city,status,notes,created_at&order=created_at.desc&limit=300').then(function(x){
+  v.innerHTML='<div class="card"><h2>Contactos</h2></div>'+tbl(['Nombre','Correo','Teléfono','Ciudad','Estado','Nota'],x.j.map(function(c){return '<tr><td><b>'+esc(c.full_name)+'</b></td><td>'+esc(c.email)+'</td><td>'+esc(c.phone)+'</td><td>'+esc(c.city)+'</td><td>'+stp(c.status)+'</td><td>'+esc(c.notes)+'</td></tr>'}))})},
+ req:function(v){return get('service_requests?select=ref,status,mode,goal,preferred_schedule,created_at,contacts(full_name,email,phone),services(name_es)&order=created_at.desc&limit=200').then(function(x){
+  v.innerHTML='<div class="card"><h2>Solicitudes de servicio</h2><p class="empty">Llegan desde el formulario “Solicitar servicio” del sitio.</p></div>'+tbl(['Referencia','Solicitante','Servicio','Modalidad','Detalle','Estado'],x.j.map(function(r){return '<tr><td><b>'+esc(r.ref)+'</b><small>'+dt(r.created_at)+'</small></td><td>'+esc(r.contacts&&r.contacts.full_name)+'<small>'+esc(r.contacts&&r.contacts.email)+'</small></td><td>'+esc(r.services&&r.services.name_es)+'</td><td>'+esc(r.mode)+'</td><td>'+esc(r.goal)+'<small>'+esc(r.preferred_schedule)+'</small></td><td>'+stp(r.status)+'</td></tr>'}))})},
+ msg:function(v){return get('outbound_messages?select=created_at,channel,to_address,template_code,subject,body,status&order=created_at.desc&limit=100').then(function(x){
+  v.innerHTML='<div class="card"><h2>Mensajes en cola</h2><p class="empty">Aquí se acumulan los correos y SMS que el sistema generó. En esta etapa no se envían: el envío real (correo, SMS, WhatsApp) se conecta en la fase 2.</p></div>'+tbl(['Fecha','Canal','Para','Plantilla','Mensaje','Estado'],x.j.map(function(m){return '<tr><td>'+dt(m.created_at)+'</td><td>'+esc(m.channel)+'</td><td>'+esc(m.to_address)+'</td><td>'+esc(m.template_code)+'</td><td><b>'+esc(m.subject)+'</b><small>'+esc(m.body)+'</small></td><td>'+stp(m.status)+'</td></tr>'}))})},
+ lat:function(v){return get('chatbot_unanswered?select=question,lang,page,created_at,handled_at&order=created_at.desc&limit=200').then(function(x){
+  v.innerHTML='<div class="card"><h2>Preguntas que Latina no pudo contestar</h2><p class="empty">Sirven para ampliar su banco de respuestas.</p></div>'+tbl(['Fecha','Pregunta','Idioma','Atendida'],x.j.map(function(q){return '<tr><td>'+dt(q.created_at)+'</td><td>'+esc(q.question)+'</td><td>'+esc(q.lang)+'</td><td>'+(q.handled_at?dt(q.handled_at):'—')+'</td></tr>'}))})},
+ cer:function(v){return get('certificates?select=certificate_no,verification_code,issued_on,revoked_at,enrollments(contacts(full_name),cohorts(code,courses(name_es)))&order=created_at.desc&limit=200').then(function(x){
+  v.innerHTML='<div class="card"><h2>Certificados</h2><p class="empty">Pruebe el número en “Verificar” del sitio público.</p></div>'+tbl(['Número','Titular','Curso','Emitido','Estado'],x.j.map(function(c){var e=c.enrollments||{};return '<tr><td><b>'+esc(c.certificate_no)+'</b></td><td>'+esc(e.contacts&&e.contacts.full_name)+'</td><td>'+esc(e.cohorts&&e.cohorts.courses&&e.cohorts.courses.name_es)+'<small>'+esc(e.cohorts&&e.cohorts.code)+'</small></td><td>'+d0(c.issued_on)+'</td><td>'+(c.revoked_at?'<span class="pill bad">Revocado</span>':'<span class="pill ok">Vigente</span>')+'</td></tr>'}))})}
+};
+loadSess();if(TOKEN&&UID)start();else loginView();
+})();
+</script>
+</body>
+</html>
