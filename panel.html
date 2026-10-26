@@ -99,7 +99,7 @@ function authErr(j){var m=(j&&(j.msg||j.error_description||j.message||j.error))|
  if(/rate limit|too many|after \d+ seconds/i.test(m))return 'Se enviaron demasiados correos seguidos. Espere unos minutos e intente de nuevo.';
  if(/password should be|weak/i.test(m))return 'La contraseña debe tener al menos 8 caracteres.';
  return M[m]||m}
-function setSession(j){TOKEN=j.access_token;UID=j.user&&j.user.id;ss('evl_tok',TOKEN);ss('evl_uid',UID);start()}
+function setSession(j){TOKEN=j.access_token;UID=j.user&&j.user.id;ls('evl_tok',TOKEN);ls('evl_uid',UID);start()}
 function loginView(err,ok,mode){
  clearTimers();if(mode)LMODE=mode;document.getElementById('out').hidden=true;document.getElementById('roles').innerHTML='';
  var pre=ls('evl_pre')||'',m=LMODE;
@@ -119,10 +119,10 @@ function loginView(err,ok,mode){
     var uu=j.user||j;if(uu&&uu.identities&&!uu.identities.length){loginView('Ese correo ya tiene una cuenta. Use “Ingresar” o “Olvidé mi contraseña”.',null,'in');return}
     ls('evl_pre',em);loginView(null,'Le enviamos un correo a '+em+'. Abra el enlace para confirmar su cuenta y luego ingrese con su contraseña. Si no lo ve en unos minutos, revise la carpeta de spam.','in')}).catch(done)}
   else if(m==='rec')authPost('recover',{email:g('em')},'?redirect_to='+encodeURIComponent(back)).then(function(){loginView(null,'Si ese correo tiene una cuenta, le enviamos un enlace para crear una contraseña nueva. Revise también el spam.','in')}).catch(done);
-  else if(m==='new')fetch(SB+'/auth/v1/user',{method:'PUT',headers:{apikey:KEY,Authorization:'Bearer '+TOKEN,'Content-Type':'application/json'},body:JSON.stringify({password:document.getElementById('pw').value})}).then(function(r){return r.json().then(function(j){if(!r.ok)throw new Error(authErr(j));ss('evl_tok',TOKEN);start()})}).catch(done)};
+  else if(m==='new')fetch(SB+'/auth/v1/user',{method:'PUT',headers:{apikey:KEY,Authorization:'Bearer '+TOKEN,'Content-Type':'application/json'},body:JSON.stringify({password:document.getElementById('pw').value})}).then(function(r){return r.json().then(function(j){if(!r.ok)throw new Error(authErr(j));ls('evl_tok',TOKEN);start()})}).catch(done)};
 }
 app.addEventListener('click',function(e){var b=e.target.closest('[data-lm]');if(b&&document.getElementById('lf')){loginView(null,null,b.getAttribute('data-lm'))}});
-function logout(m){TOKEN=null;UID=null;ROLE=null;TAB=null;ss('evl_tok',null);ss('evl_uid',null);loginView(typeof m==='string'?m:undefined)}
+function logout(m){TOKEN=null;UID=null;ROLE=null;TAB=null;ls('evl_tok',null);ls('evl_uid',null);loginView(typeof m==='string'?m:undefined)}
 document.getElementById('out').onclick=function(){logout()};
 
 var PORTALS={admin:'Administrador',professor:'Profesor',student:'Estudiante'};
@@ -355,8 +355,8 @@ document.getElementById('app').addEventListener('change',function(ev){var s=ev.t
  try{if(h)history.replaceState(null,'',location.pathname+location.search)}catch(e){}
  if(p.error_description){TOKEN=null;loginView(p.error_description.replace(/\+/g,' ')+' Pida un enlace nuevo.');return}
  if(p.access_token){TOKEN=p.access_token;
-  fetch(SB+'/auth/v1/user',{headers:{apikey:KEY,Authorization:'Bearer '+TOKEN}}).then(function(r){return r.json()}).then(function(u){UID=u.id;if(p.type==='recovery'){loginView(null,null,'new')}else{ss('evl_tok',TOKEN);ss('evl_uid',UID);ls('evl_pre',null);start()}}).catch(function(){loginView('El enlace no es válido o venció.')});return}
- TOKEN=ss('evl_tok');UID=ss('evl_uid');
+  fetch(SB+'/auth/v1/user',{headers:{apikey:KEY,Authorization:'Bearer '+TOKEN}}).then(function(r){return r.json()}).then(function(u){UID=u.id;if(p.type==='recovery'){loginView(null,null,'new')}else{ls('evl_tok',TOKEN);ls('evl_uid',UID);ls('evl_pre',null);start()}}).catch(function(){loginView('El enlace no es válido o venció.')});return}
+ TOKEN=ls('evl_tok');UID=ls('evl_uid');
  if(TOKEN&&UID)start();else if(new URLSearchParams(location.search).get('crear')){loginView(null,null,'up')}else loginView();})();
 })();
 </script>

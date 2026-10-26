@@ -1449,6 +1449,22 @@ function rpc(fn,args){
  return fetch(SB_URL+'/rest/v1/rpc/'+fn,{method:'POST',headers:{apikey:SB_KEY,Authorization:'Bearer '+SB_KEY,'Content-Type':'application/json'},body:JSON.stringify(args||{})})
  .then(function(r){return r.json().catch(function(){return null}).then(function(j){if(!r.ok)throw new Error((j&&(j.message||j.hint))||('HTTP '+r.status));return j})})}
 var LV={cohorts:[],load:true,err:'',busy:false};
+
+/* sesión del portal: rellena el formulario con los datos de la cuenta */
+var ACC={loaded:false,p:null};
+function accGet(){try{return {t:localStorage.getItem('evl_tok'),u:localStorage.getItem('evl_uid')}}catch(e){return {}}}
+function accLoad(){var a=accGet();ACC.p=null;if(!a.t||!a.u)return Promise.resolve();
+ var H={apikey:SB_KEY,Authorization:'Bearer '+a.t},q='contacts?select=full_name,email,phone,city,%S&profile_id=eq.'+a.u+'&deleted_at=is.null&limit=1';
+ var go=function(sel){return fetch(SB_URL+'/rest/v1/'+q.replace('%S',sel),{headers:H}).then(function(r){if(!r.ok)throw new Error(r.status);return r.json()})};
+ return go('counties(name)').catch(function(){return go('id')}).then(function(j){var c=j&&j[0];if(c){ACC.p={name:c.full_name,email:c.email,phone:c.phone,city:c.city,county:c.counties&&c.counties.name};return}
+  return fetch(SB_URL+'/rest/v1/profiles?select=full_name,email&id=eq.'+a.u,{headers:H}).then(function(r){return r.ok?r.json():[]}).then(function(p){if(p&&p[0])ACC.p={name:p[0].full_name,email:p[0].email}})}).catch(function(){})}
+function accFill(){
+ if(!ACC.p){if(!ACC.loaded){ACC.loaded=true;accLoad().then(function(){if(ACC.p)accFill()})}return}
+ var set=function(id,v){var e=document.getElementById(id);if(e&&v&&!e.value)e.value=v};
+ set('ew_name',ACC.p.name);set('ew_email',ACC.p.email);set('ew_phone',ACC.p.phone);set('ew_city',ACC.p.city);
+ var s=document.getElementById('ew_cty');if(s&&ACC.p.county&&s.selectedIndex<=0)for(var i=0;i<s.options.length;i++)if(s.options[i].text===ACC.p.county){s.selectedIndex=i}
+ var em=document.getElementById('ew_email');if(em&&ACC.p.email&&!em.readOnly){em.readOnly=true;em.title='Sesión iniciada'}}
+var _rEw=renderEw;renderEw=function(){_rEw.apply(this,arguments);accFill()};
 var LER={cohort_full:['Esa fecha se llenó. Elija otra.','That date is full. Choose another.'],already_enrolled:['Ya existe una inscripción con ese correo en esta fecha.','There is already an enrollment with that email for this date.'],invalid_email:['Escriba un correo válido.','Enter a valid email.'],terms_required:['Debe aceptar los términos y condiciones.','You must accept the terms and conditions.'],consent_required:['Debe aceptar los recordatorios.','You must accept the reminders.'],cohort_not_available:['Esa fecha ya no está disponible.','That date is no longer available.'],phone_required_for_sms:['Escriba su celular para recibir SMS.','Enter your mobile number to receive SMS.'],name_required:['Escriba su nombre completo.','Enter your full name.'],service_not_found:['Servicio no disponible.','Service not available.']};
 function lerr(e){var k=String(e&&e.message||'').trim(),p=LER[k];toast(p?p[0]:'No se pudo completar: '+k,p?p[1]:'Could not complete: '+k)}
 function lvName(c){return lang==='en'?c.course_name_en:c.course_name_es}
@@ -1477,7 +1493,7 @@ function renderEw(){
  $('#ewsend').onclick=sendEw;
 }
 function openEw(){
- EW.done=null;EW.coh='';LV.load=true;LV.err='';renderEw();$('#eov').classList.add('open');
+ EW.done=null;EW.coh='';LV.load=true;LV.err='';ACC.loaded=false;ACC.p=null;renderEw();$('#eov').classList.add('open');
  rpc('get_open_cohorts').then(function(r){LV.cohorts=r||[];LV.load=false;renderEw()},function(e){LV.err=e.message;LV.load=false;renderEw()})}
 function closeEw(){$('#eov').classList.remove('open')}
 $('#eov').onclick=function(e){if(e.target===this)closeEw()};
