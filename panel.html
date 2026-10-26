@@ -92,14 +92,36 @@ function clearTimers(){TIMERS.forEach(clearInterval);TIMERS=[]}
 function fmtCd(ms){ms=Math.max(0,ms);var h=Math.floor(ms/3600000),m=Math.floor(ms%3600000/60000),s=Math.floor(ms%60000/1000);return (h<10?'0':'')+h+':'+(m<10?'0':'')+m+':'+(s<10?'0':'')+s}
 
 /* ---------- sesión ---------- */
-function loginView(err){
- clearTimers();document.getElementById('out').hidden=true;document.getElementById('roles').innerHTML='';
- app.innerHTML='<div class="card login"><h2>Ingresar</h2><p class="empty">Use el usuario que se creó en Supabase Authentication (administrador, profesor o estudiante de prueba).</p>'+(err?'<div class="msg err">'+esc(err)+'</div>':'')+'<form id="lf"><label for="em">Correo</label><input id="em" type="email" autocomplete="username" required><label for="pw">Contraseña</label><input id="pw" type="password" autocomplete="current-password" required><p><button class="btn" type="submit">Ingresar</button></p></form></div>';
- document.getElementById('lf').onsubmit=function(ev){ev.preventDefault();
-  fetch(SB+'/auth/v1/token?grant_type=password',{method:'POST',headers:{apikey:KEY,'Content-Type':'application/json'},body:JSON.stringify({email:document.getElementById('em').value.trim(),password:document.getElementById('pw').value})})
-  .then(function(r){return r.json().then(function(j){if(!r.ok)throw new Error(j.error_description||j.msg||'No se pudo ingresar');TOKEN=j.access_token;UID=j.user&&j.user.id;ss('evl_tok',TOKEN);ss('evl_uid',UID);start()})})
-  .catch(function(e){loginView(e.message==='Invalid login credentials'?'Correo o contraseña incorrectos.':e.message)})};
+var LMODE='in';
+function authPost(path,body,q){return fetch(SB+'/auth/v1/'+path+(q||''),{method:'POST',headers:{apikey:KEY,'Content-Type':'application/json'},body:JSON.stringify(body)}).then(function(r){return r.json().then(function(j){if(!r.ok)throw new Error(authErr(j));return j})})}
+function authErr(j){var m=(j&&(j.msg||j.error_description||j.message||j.error))||'Error';
+ var M={'Invalid login credentials':'Correo o contraseña incorrectos.','Email not confirmed':'Falta confirmar su correo. Revise su bandeja (y la carpeta de spam) y abra el enlace que le enviamos.','User already registered':'Ese correo ya tiene una cuenta. Use “Ingresar” o “Olvidé mi contraseña”.'};
+ if(/rate limit|too many|after \d+ seconds/i.test(m))return 'Se enviaron demasiados correos seguidos. Espere unos minutos e intente de nuevo.';
+ if(/password should be|weak/i.test(m))return 'La contraseña debe tener al menos 8 caracteres.';
+ return M[m]||m}
+function setSession(j){TOKEN=j.access_token;UID=j.user&&j.user.id;ss('evl_tok',TOKEN);ss('evl_uid',UID);start()}
+function loginView(err,ok,mode){
+ clearTimers();if(mode)LMODE=mode;document.getElementById('out').hidden=true;document.getElementById('roles').innerHTML='';
+ var pre=ls('evl_pre')||'',m=LMODE;
+ var tabs='<div class="tabs" style="margin:0 0 6px"><button data-lm="in"'+(m==='in'?' class="on"':'')+'>Ingresar</button><button data-lm="up"'+(m==='up'?' class="on"':'')+'>Crear cuenta</button></div>';
+ var f='';
+ if(m==='in')f='<label for="em">Correo</label><input id="em" type="email" autocomplete="username" value="'+esc(pre)+'" required><label for="pw">Contraseña</label><input id="pw" type="password" autocomplete="current-password" required><p><button class="btn" type="submit">Ingresar</button> <button type="button" class="btn ghost sm" data-lm="rec">Olvidé mi contraseña</button></p>';
+ else if(m==='up')f='<p class="empty">Cree su cuenta de estudiante para ver su curso, su enlace de Zoom, sus clases y su certificado. <b>Use el mismo correo con el que se inscribió.</b></p><label for="nm">Nombre completo</label><input id="nm" autocomplete="name" required><label for="em">Correo</label><input id="em" type="email" autocomplete="username" value="'+esc(pre)+'" required><label for="pw">Contraseña (mínimo 8 caracteres)</label><input id="pw" type="password" autocomplete="new-password" minlength="8" required><p><button class="btn" type="submit">Crear mi cuenta</button></p>';
+ else if(m==='rec')f='<p class="empty">Escriba su correo y le enviaremos un enlace para crear una contraseña nueva.</p><label for="em">Correo</label><input id="em" type="email" autocomplete="username" value="'+esc(pre)+'" required><p><button class="btn" type="submit">Enviar enlace</button> <button type="button" class="btn ghost sm" data-lm="in">Volver</button></p>';
+ else if(m==='new')f='<p class="empty">Escriba su nueva contraseña.</p><label for="pw">Nueva contraseña (mínimo 8 caracteres)</label><input id="pw" type="password" autocomplete="new-password" minlength="8" required><p><button class="btn" type="submit">Guardar contraseña</button></p>';
+ app.innerHTML='<div class="card login"><h2>'+(m==='new'?'Nueva contraseña':m==='rec'?'Recuperar contraseña':'Portal de estudiantes')+'</h2>'+(m==='new'||m==='rec'?'':tabs)+(err?'<div class="msg err">'+esc(err)+'</div>':'')+(ok?'<div class="msg okm">'+esc(ok)+'</div>':'')+'<form id="lf">'+f+'</form></div>';
+ var back=location.origin+location.pathname;
+ document.getElementById('lf').onsubmit=function(ev){ev.preventDefault();var g=function(i){var e=document.getElementById(i);return e?e.value.trim():''},btn=ev.target.querySelector('button[type=submit]');btn.disabled=true;
+  var done=function(e){loginView(e.message,null);};
+  if(m==='in')authPost('token',{email:g('em'),password:document.getElementById('pw').value},'?grant_type=password').then(function(j){ls('evl_pre',null);setSession(j)}).catch(done);
+  else if(m==='up'){var em=g('em'),pw=document.getElementById('pw').value;authPost('signup',{email:em,password:pw,data:{full_name:g('nm')}},'?redirect_to='+encodeURIComponent(back)).then(function(j){
+    if(j.access_token){ls('evl_pre',null);setSession(j);return}
+    var uu=j.user||j;if(uu&&uu.identities&&!uu.identities.length){loginView('Ese correo ya tiene una cuenta. Use “Ingresar” o “Olvidé mi contraseña”.',null,'in');return}
+    ls('evl_pre',em);loginView(null,'Le enviamos un correo a '+em+'. Abra el enlace para confirmar su cuenta y luego ingrese con su contraseña. Si no lo ve en unos minutos, revise la carpeta de spam.','in')}).catch(done)}
+  else if(m==='rec')authPost('recover',{email:g('em')},'?redirect_to='+encodeURIComponent(back)).then(function(){loginView(null,'Si ese correo tiene una cuenta, le enviamos un enlace para crear una contraseña nueva. Revise también el spam.','in')}).catch(done);
+  else if(m==='new')fetch(SB+'/auth/v1/user',{method:'PUT',headers:{apikey:KEY,Authorization:'Bearer '+TOKEN,'Content-Type':'application/json'},body:JSON.stringify({password:document.getElementById('pw').value})}).then(function(r){return r.json().then(function(j){if(!r.ok)throw new Error(authErr(j));ss('evl_tok',TOKEN);start()})}).catch(done)};
 }
+app.addEventListener('click',function(e){var b=e.target.closest('[data-lm]');if(b&&document.getElementById('lf')){loginView(null,null,b.getAttribute('data-lm'))}});
 function logout(m){TOKEN=null;UID=null;ROLE=null;TAB=null;ss('evl_tok',null);ss('evl_uid',null);loginView(typeof m==='string'?m:undefined)}
 document.getElementById('out').onclick=function(){logout()};
 
@@ -329,8 +351,13 @@ document.getElementById('app').addEventListener('change',function(ev){var s=ev.t
 
 /* ---------- inicio ---------- */
 (function(){var m=location.search.match(/[?&]r=([A-Za-z0-9]+)/);if(m){ss('evl_r',m[1]);try{history.replaceState(null,'',location.pathname)}catch(e){}}})();
-TOKEN=ss('evl_tok');UID=ss('evl_uid');
-if(TOKEN&&UID)start();else loginView();
+(function(){var h=location.hash.replace(/^#/,''),p={};h.split('&').forEach(function(x){var k=x.split('=');if(k[0])p[k[0]]=decodeURIComponent(k[1]||'')});
+ try{if(h)history.replaceState(null,'',location.pathname+location.search)}catch(e){}
+ if(p.error_description){TOKEN=null;loginView(p.error_description.replace(/\+/g,' ')+' Pida un enlace nuevo.');return}
+ if(p.access_token){TOKEN=p.access_token;
+  fetch(SB+'/auth/v1/user',{headers:{apikey:KEY,Authorization:'Bearer '+TOKEN}}).then(function(r){return r.json()}).then(function(u){UID=u.id;if(p.type==='recovery'){loginView(null,null,'new')}else{ss('evl_tok',TOKEN);ss('evl_uid',UID);ls('evl_pre',null);start()}}).catch(function(){loginView('El enlace no es válido o venció.')});return}
+ TOKEN=ss('evl_tok');UID=ss('evl_uid');
+ if(TOKEN&&UID)start();else if(new URLSearchParams(location.search).get('crear')){loginView(null,null,'up')}else loginView();})();
 })();
 </script>
 </body>

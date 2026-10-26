@@ -1457,7 +1457,7 @@ function ewCohs(){return LV.cohorts}
 function renderEw(){
  var w=$('#ew');if(!w)return;var hs=LV.cohorts;
  if(EW.done){var d=EW.done,pd=d.r.status==='paid';
-  w.innerHTML='<button class="x" id="ewx" aria-label="Cerrar">×</button><div class="vok"><h5>✓ '+T(pd?{es:'¡Inscripción confirmada!',en:'Enrollment confirmed!'}:{es:'¡Cupo reservado!',en:'Seat reserved!'})+'</h5><dl><dt>'+T({es:'Programa',en:'Program'})+'</dt><dd>'+esc(lvName(d.c))+'</dd><dt>Cohort</dt><dd>'+dT(d.c.start_date)+' · Zoom</dd><dt>'+T({es:'Inversión',en:'Investment'})+'</dt><dd>'+lvPrice(d.c)+'</dd><dt>'+T({es:'Registro',en:'Record'})+'</dt><dd>'+esc(d.r.enrollment_id.slice(0,8))+'</dd></dl></div><p style="margin:14px 0">'+T(pd?{es:'Su inscripción quedó confirmada y registrada en la base de datos.',en:'Your enrollment is confirmed and recorded in the database.'}:{es:'Su reserva quedó registrada en la base de datos con la factura pendiente. En esta versión de pruebas el pago lo registra el administrador desde el Panel; en la versión final se confirma solo con QuickBooks.',en:'Your reservation is recorded in the database with a pending invoice. In this test version the administrator records the payment from the Panel; in the final version QuickBooks confirms it automatically.'})+'</p><button class="btn" id="ewok">'+T({es:'Entendido',en:'Got it'})+'</button>';
+  w.innerHTML='<button class="x" id="ewx" aria-label="Cerrar">×</button><div class="vok"><h5>✓ '+T(pd?{es:'¡Inscripción confirmada!',en:'Enrollment confirmed!'}:{es:'¡Cupo reservado!',en:'Seat reserved!'})+'</h5><dl><dt>'+T({es:'Programa',en:'Program'})+'</dt><dd>'+esc(lvName(d.c))+'</dd><dt>Cohort</dt><dd>'+dT(d.c.start_date)+' · Zoom</dd><dt>'+T({es:'Inversión',en:'Investment'})+'</dt><dd>'+lvPrice(d.c)+'</dd><dt>'+T({es:'Registro',en:'Record'})+'</dt><dd>'+esc(d.r.enrollment_id.slice(0,8))+'</dd></dl></div><p style="margin:14px 0">'+T(pd?{es:'Su inscripción quedó confirmada. Enviaremos los detalles y el enlace de Zoom a ',en:'Your enrollment is confirmed. We will send the details and the Zoom link to '}:{es:'Reservamos su cupo. Enviaremos la confirmación y el enlace de pago a ',en:'We reserved your seat. We will send the confirmation and payment link to '})+'<b>'+esc(d.em||'')+'</b>.</p><p style="margin:0 0 14px">'+T({es:'Para ver su curso, sus clases y su certificado, cree su cuenta en el portal con este mismo correo.',en:'To see your course, classes and certificate, create your portal account with this same email.'})+'</p><p style="font-size:12.5px;color:var(--mute);margin:0 0 14px">'+T({es:'Versión de pruebas: el pago lo registra el administrador; en la versión final se confirma solo con QuickBooks.',en:'Test version: the administrator records the payment; in the final version QuickBooks confirms it automatically.'})+'</p><a class="btn" href="panel.html?crear=1">'+T({es:'Crear mi cuenta',en:'Create my account'})+'</a> <button class="btn ghost" id="ewok">'+T({es:'Cerrar',en:'Close'})+'</button>';
   $('#ewx').onclick=$('#ewok').onclick=closeEw;return}
  var free=function(h){return h.seats_free>0};
  if(!EW.coh||!hs.some(function(h){return h.cohort_id===EW.coh&&free(h)}))EW.coh=(hs.filter(free)[0]||{}).cohort_id||'';
@@ -1494,7 +1494,7 @@ function sendEw(){
  var b=$('#ewsend');b.disabled=true;
  var cty=$('#ew_cty').value;
  rpc('submit_enrollment',{p_cohort:h.cohort_id,p_full_name:n,p_email:em,p_phone:ph||null,p_city:v('ew_city')||null,p_county:cty.indexOf('Otro')===0?null:cty,p_works_in_childcare:$('#ew_job').value==='si',p_institution:v('ew_inst')||null,p_channel:ch,p_consent_reminders:true,p_accept_terms:true,p_coupon:null,p_lang:lang})
- .then(function(r){EW.done={c:h,r:r};renderEw()},function(e){lerr(e);b.disabled=false});
+ .then(function(r){EW.done={c:h,r:r,em:em};try{localStorage.setItem('evl_pre',em)}catch(x){}renderEw()},function(e){lerr(e);b.disabled=false});
 }
 /* solicitudes de servicio → base de datos */
 function saveReq(rq,cb){
@@ -1523,8 +1523,8 @@ function ltAsk(txt){
  var L=ltLang(txt),e=kbFind(txt);
  if(e)ltBot(e,null,L);else{rpc('log_unanswered',{p_question:txt,p_lang:L,p_page:'evl-demo-db'}).catch(function(){});ltFallback(L)}}
 /* menú y aviso */
-Array.prototype.forEach.call(document.querySelectorAll('a[href="#portal"]'),function(a){a.href='panel.html';a.innerHTML='<span class="es">Panel (BD)</span><span class="en">Panel (DB)</span>'});
-var dbPill=document.createElement('a');dbPill.href="panel.html";dbPill.id='dbpill';dbPill.innerHTML='<span class="es">Versión de pruebas conectada a la base de datos · Abrir panel</span><span class="en">Test version connected to the database · Open panel</span>';document.body.appendChild(dbPill);
+Array.prototype.forEach.call(document.querySelectorAll('a[href="#portal"]'),function(a){a.href='panel.html';a.innerHTML='<span class="es">Mi cuenta</span><span class="en">My account</span>'});
+var dbPill=document.createElement('a');dbPill.href="panel.html";dbPill.id='dbpill';dbPill.innerHTML='<span class="es">Versión de pruebas conectada a la base de datos · Ingresar al portal</span><span class="en">Test version connected to the database · Open the portal</span>';document.body.appendChild(dbPill);
 /* ===== fin EVL-DATABASE ===== */
 $('#portal').addEventListener('change',function(ev){var c=ev.target;if(c.hasAttribute&&c.hasAttribute('data-miss')){var p=c.getAttribute('data-miss').split(':'),e=enr(p[0]),k=+p[1];e.miss=e.miss||[];var i=e.miss.indexOf(k);if(c.checked&&i<0)e.miss.push(k);if(!c.checked&&i>-1)e.miss.splice(i,1);e.miss.sort()}});
 $('#portal').addEventListener('click',function(ev){var t=ev.target.closest('button');if(!t)return;var g=function(k){return t.getAttribute(k)};
