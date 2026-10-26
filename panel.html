@@ -113,7 +113,7 @@ function start(){
  get('user_roles?select=role&user_id=eq.'+UID).then(function(x){
   var r=x.j.map(function(q){return q.role});ROLES=[];
   if(r.indexOf('admin')>-1||r.indexOf('staff')>-1)ROLES.push('admin');
-  if(r.indexOf('professor')>-1)ROLES.push('professor');
+  if(r.indexOf('professor')>-1||ROLES.indexOf('admin')>-1)ROLES.push('professor'); /* el administrador también puede abrir la vista de profesor */
   if(r.indexOf('student')>-1)ROLES.push('student');
   if(!ROLES.length){loginView('Este usuario no tiene ningún rol asignado.');return}
   document.getElementById('out').hidden=false;
